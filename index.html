@@ -1,0 +1,204 @@
+<!doctype html>
+
+<html lang="id">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>TikTok Downloader — API Nekorinn</title>
+  <style>
+    :root{--bg:#0b1020;--card:#111831;--text:#e6eaf3;--muted:#93a0b8;--accent:#5b8cff;--ok:#22c55e;--warn:#f59e0b;--err:#ef4444;--border:#1f2a4d}
+    *{box-sizing:border-box}
+    body{margin:0;background:radial-gradient(1200px 600px at 80% -10%,#18234b 0%,#0b1020 60%);color:var(--text);font:15.5px/1.55 system-ui,-apple-system,Segoe UI,Roboto,Ubuntu,"Noto Sans",sans-serif}
+    .wrap{max-width:900px;margin:0 auto;padding:22px}
+    h1{font-size:24px;margin:0 0 6px}
+    p.lead{margin:0 0 16px;color:var(--muted)}
+    .card{background:linear-gradient(180deg,#111831,#0d142a);border:1px solid var(--border);border-radius:16px;box-shadow:0 10px 30px rgba(0,0,0,.25);padding:16px}
+    label{display:block;font-weight:600;margin:10px 0 6px}
+    input[type="text"],button{font:inherit}
+    input[type="text"]{width:100%;padding:12px 14px;border:1px solid var(--border);border-radius:12px;background:#0b1228;color:var(--text)}
+    .row{display:grid;grid-template-columns:1fr;gap:10px}
+    @media(min-width:760px){.row.cols-2{grid-template-columns:1.2fr .8fr}}
+    .btn{display:inline-flex;align-items:center;gap:8px;border:none;border-radius:12px;padding:10px 14px;font-weight:700;cursor:pointer}
+    .btn.primary{background:var(--accent);color:#fff}
+    .btn.ghost{background:#0b1228;border:1px solid var(--border);color:var(--text)}
+    .btn.icon{padding:9px 10px;border-radius:10px}
+    .muted{color:var(--muted)}
+    .bar{display:flex;gap:8px;flex-wrap:wrap}
+    .bar .btn{height:42px}
+    .grid{display:grid;gap:12px}
+    @media(min-width:760px){.grid.cols-2{grid-template-columns:1fr 1fr}}
+    .meta{display:grid;grid-template-columns:70px 1fr;gap:10px}
+    .meta img{width:70px;height:70px;border-radius:12px;object-fit:cover;border:1px solid var(--border)}
+    .kv{display:grid;grid-template-columns:1fr 1fr;gap:10px;color:var(--muted);font-size:14px}
+    .kv div{background:#0b1228;border:1px dashed var(--border);border-radius:10px;padding:8px 10px}
+    .pill{display:inline-block;padding:2px 8px;border-radius:999px;border:1px solid var(--border);background:#0b1228;color:var(--muted);font-size:12px}
+    .hr{height:1px;background:linear-gradient(90deg,transparent,#223057,transparent);margin:14px 0}
+    .video{width:100%;max-height:440px;background:#000;border-radius:14px;border:1px solid var(--border)}
+    .warn{color:var(--warn)}
+    .err{color:var(--err)}
+    .ok{color:var(--ok)}
+    .center{display:flex;align-items:center;justify-content:center}
+    .spinner{width:18px;height:18px;border-radius:50%;border:2px solid #2b3d73;border-top-color:#89a6ff;animation:spin 1s linear infinite}
+    @keyframes spin{to{transform:rotate(360deg)}}
+    a.dl{display:inline-flex;align-items:center;gap:8px;padding:10px 14px;border-radius:12px;background:#0b1228;border:1px solid var(--border);color:#e6eaf3;text-decoration:none}
+  </style>
+</head>
+<body>
+  <div class="wrap">
+    <h1>TikTok Downloader — API Nekorinn</h1>
+    <p class="lead">Masukkan link TikTok → ambil info → unduh <b>video</b> atau <b>music</b>. (Gunakan dengan bijak & hormati hak kreator.)</p><div class="card">
+  <label>Link TikTok</label>
+  <div class="bar">
+    <input id="url" type="text" placeholder="https://vt.tiktok.com/..."/>
+    <button id="paste" class="btn icon ghost" title="Paste dari clipboard">📋</button>
+    <button id="go" class="btn primary">Ambil</button>
+  </div>
+  <div class="muted" style="margin-top:6px">Contoh cepat: <span class="pill">vt.tiktok.com/ZSSgdoTxR/</span></div>
+</div>
+
+<div id="state" class="muted" style="margin:12px 2px"></div>
+
+<div id="result" class="grid cols-2" style="display:none">
+  <div class="card">
+    <video id="vid" class="video" controls playsinline></video>
+    <div class="hr"></div>
+    <div class="bar">
+      <a id="openVideo" class="dl" target="_blank" rel="noreferrer">🔗 Buka Video</a>
+      <a id="openMusic" class="dl" target="_blank" rel="noreferrer">🎵 Buka Music</a>
+      <button id="dlVideo" class="btn ghost">⬇️ Download Video</button>
+      <button id="dlMusic" class="btn ghost">⬇️ Download Music</button>
+    </div>
+  </div>
+  <div class="card">
+    <div class="meta">
+      <img id="cover" alt="cover"/>
+      <div>
+        <div id="title" style="font-weight:700"></div>
+        <div class="muted" id="created"></div>
+        <div style="margin-top:4px" id="author"></div>
+      </div>
+    </div>
+    <div class="hr"></div>
+    <div class="kv">
+      <div>▶️ Play: <b id="statPlay">0</b></div>
+      <div>❤️ Like: <b id="statLike">0</b></div>
+      <div>💬 Comment: <b id="statComment">0</b></div>
+      <div>↗️ Share: <b id="statShare">0</b></div>
+    </div>
+  </div>
+</div>
+
+<div id="tips" class="muted" style="margin-top:10px">
+  
+</div>
+
+  </div><script>
+const els = id=>document.getElementById(id);
+const urlEl = els('url');
+const goEl = els('go');
+const pasteEl = els('paste');
+const stateEl = els('state');
+const resultEl = els('result');
+const vidEl = els('vid');
+const coverEl = els('cover');
+const titleEl = els('title');
+const createdEl = els('created');
+const authorEl = els('author');
+const statPlayEl = els('statPlay');
+const statLikeEl = els('statLike');
+const statCommentEl = els('statComment');
+const statShareEl = els('statShare');
+const openVideoEl = els('openVideo');
+const openMusicEl = els('openMusic');
+const dlVideoEl = els('dlVideo');
+const dlMusicEl = els('dlMusic');
+const tipsEl = els('tips');
+
+const API_BASE = 'https://api.nekorinn.my.id/downloader/tikwm?url=';
+
+pasteEl.addEventListener('click', async ()=>{
+  try{
+    const text = await navigator.clipboard.readText();
+    if(text) { urlEl.value = text.trim(); }
+  }catch(e){
+    alert('Clipboard tidak diizinkan. Paste manual ya.');
+  }
+});
+
+goEl.addEventListener('click', ()=> run(urlEl.value));
+urlEl.addEventListener('keydown', e=>{ if(e.key==='Enter') run(urlEl.value); });
+
+async function run(tiktokUrl){
+  tipsEl.textContent = '';
+  resultEl.style.display = 'none';
+  if(!tiktokUrl || !/tiktok\.com\//i.test(tiktokUrl)){
+    toast('Masukkan link TikTok yang valid.', 'err');
+    return;
+  }
+  try{
+    loading('Mengambil data…');
+    const q = API_BASE + encodeURIComponent(tiktokUrl.trim());
+    const res = await fetch(q, {mode:'cors'});
+    if(!res.ok) throw new Error('Gagal konek API ('+res.status+')');
+    const json = await res.json();
+    if(!json.status || !json.result) throw new Error('Respon API tidak valid.');
+    render(json.result);
+    done('Berhasil ✓');
+  }catch(err){
+    toast(err.message || 'Gagal memproses.', 'err');
+  }
+}
+
+function render(r){
+  titleEl.textContent = r.title || '(tanpa judul)';
+  createdEl.textContent = r.create_at ? 'Dibuat: ' + r.create_at : '';
+  authorEl.innerHTML = r.author ? `👤 <b>${escapeHtml(r.author.name||'')}</b> <span class="muted">${escapeHtml(r.author.username||'')}</span>` : '';
+  coverEl.src = r.cover || '';
+  statPlayEl.textContent = r.stats?.play || '0';
+  statLikeEl.textContent = r.stats?.like || '0';
+  statCommentEl.textContent = r.stats?.comment || '0';
+  statShareEl.textContent = r.stats?.share || '0';
+
+  vidEl.src = r.videoUrl || '';
+  openVideoEl.href = r.videoUrl || '#';
+  openMusicEl.href = r.musicUrl || '#';
+
+  dlVideoEl.onclick = ()=> downloadMedia(r.videoUrl, makeFilename(r,'video')+'.mp4');
+  dlMusicEl.onclick = ()=> downloadMedia(r.musicUrl, makeFilename(r,'music')+'.mp3');
+
+  resultEl.style.display = 'grid';
+  tipsEl.innerHTML = 'Jika tombol download gagal di beberapa perangkat, coba tombol <b>Buka Video/Music</b> lalu simpan manual. Sebagian server CDN membatasi <i>cross-origin</i> download.';
+}
+
+function makeFilename(r, kind){
+  const base = (r.author?.username || 'tiktok') + '_' + (Date.now());
+  return base + '_' + kind;
+}
+
+function loading(msg){
+  stateEl.innerHTML = `<span class="spinner"></span> <span>${msg||''}</span>`;
+}
+function done(msg){ stateEl.innerHTML = `<span class="ok">${msg||''}</span>`; }
+function toast(msg, level){ stateEl.innerHTML = `<span class="${level==='err'?'err':level==='warn'?'warn':'muted'}">${escapeHtml(msg)}</span>`; }
+
+function escapeHtml(s){ return String(s||'').replace(/[&<>"']/g, m=>({"&":"&amp;","<":"&lt;",">":"&gt;","\"":"&quot;","'":"&#39;"}[m])); }
+
+async function downloadMedia(url, filename){
+  if(!url){ toast('URL tidak tersedia.', 'err'); return; }
+  // Coba via fetch->blob (bisa gagal karena CORS). Jika gagal: buka di tab baru.
+  try{
+    loading('Mengunduh…');
+    const res = await fetch(url, {mode:'cors'});
+    if(!res.ok) throw new Error('HTTP '+res.status);
+    const blob = await res.blob();
+    const a = document.createElement('a');
+    const obj = URL.createObjectURL(blob);
+    a.href = obj; a.download = filename; document.body.appendChild(a); a.click();
+    setTimeout(()=>{ URL.revokeObjectURL(obj); a.remove(); done('Unduhan dimulai'); }, 0);
+  }catch(e){
+    toast('Fetch diblokir (CORS). Membuka tautan langsung…', 'warn');
+    window.open(url, '_blank');
+  }
+}
+</script></body>
+</html>
