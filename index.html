@@ -1,0 +1,181 @@
+<!doctype html>
+<html lang="id">
+<head>
+  <meta charset="utf-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1"/>
+  <title>TikTok Downloader — PWA + Proxy</title>
+  <link rel="manifest" href="/manifest.json">
+  <meta name="theme-color" content="#0b1020"/>
+  <style>
+    :root{--bg:#0b1020;--card:#111831;--text:#e6eaf3;--muted:#93a0b8;--accent:#5b8cff;--ok:#22c55e;--warn:#f59e0b;--err:#ef4444;--border:#1f2a4d}
+    *{box-sizing:border-box}
+    body{margin:0;background:radial-gradient(1200px 600px at 80% -10%,#18234b 0%,#0b1020 60%);color:var(--text);font:15.5px/1.55 system-ui,-apple-system,Segoe UI,Roboto}
+    .wrap{max-width:1000px;margin:0 auto;padding:22px}
+    h1{font-size:24px;margin:0 0 6px}
+    p.lead{margin:0 0 16px;color:var(--muted)}
+    .card{background:linear-gradient(180deg,#111831,#0d142a);border:1px solid var(--border);border-radius:16px;box-shadow:0 10px 30px rgba(0,0,0,.25);padding:16px}
+    label{display:block;font-weight:600;margin:10px 0 6px}
+    input[type="text"],textarea,button{font:inherit}
+    input[type="text"],textarea{width:100%;padding:12px 14px;border:1px solid var(--border);border-radius:12px;background:#0b1228;color:#e6eaf3}
+    textarea{min-height:80px}
+    .row{display:grid;grid-template-columns:1fr;gap:10px}
+    @media(min-width:760px){.row.cols-2{grid-template-columns:1.2fr .8fr}}
+    .btn{display:inline-flex;align-items:center;gap:8px;border:none;border-radius:12px;padding:10px 14px;font-weight:700;cursor:pointer}
+    .btn.primary{background:var(--accent);color:#fff}
+    .btn.ghost{background:#0b1228;border:1px solid var(--border);color:#e6eaf3}
+    .btn.icon{padding:9px 10px;border-radius:10px}
+    .muted{color:var(--muted)}
+    .bar{display:flex;gap:8px;flex-wrap:wrap}
+    .bar .btn{height:42px}
+    .grid{display:grid;gap:12px}
+    @media(min-width:760px){.grid.cols-2{grid-template-columns:1fr 1fr}}
+    .meta{display:grid;grid-template-columns:70px 1fr;gap:10px}
+    .meta img{width:70px;height:70px;border-radius:12px;object-fit:cover;border:1px solid var(--border)}
+    .kv{display:grid;grid-template-columns:1fr 1fr;gap:10px;color:var(--muted);font-size:14px}
+    .kv div{background:#0b1228;border:1px dashed var(--border);border-radius:10px;padding:8px 10px}
+    .pill{display:inline-block;padding:2px 8px;border-radius:999px;border:1px solid var(--border);background:#0b1228;color:#bcd0ff;font-size:12px}
+    .hr{height:1px;background:linear-gradient(90deg,transparent,#223057,transparent);margin:14px 0}
+    .video{width:100%;max-height:440px;background:#000;border-radius:14px;border:1px solid var(--border)}
+    .ok{color:var(--ok)} .warn{color:var(--warn)} .err{color:var(--err)}
+    a.dl{display:inline-flex;align-items:center;gap:8px;padding:10px 14px;border-radius:12px;background:#0b1228;border:1px solid var(--border);color:#e6eaf3;text-decoration:none}
+    .inline{display:flex;align-items:center;gap:8px}
+  </style>
+</head>
+<body>
+  <div class="wrap">
+    <h1>TikTok Downloader — <span class="pill">Vercel Proxy</span> <span class="pill">PWA</span></h1>
+    <p class="lead">Tempel link TikTok → Ambil → Unduh Video/Music. (Hormati hak cipta & ToS.)</p>
+
+    <div class="card">
+      <label>Link TikTok</label>
+      <div class="bar">
+        <input id="url" type="text" placeholder="https://vt.tiktok.com/..."/>
+        <button id="paste" class="btn icon ghost" title="Paste dari clipboard">📋</button>
+        <button id="go" class="btn primary">Ambil</button>
+      </div>
+    </div>
+
+    <div class="grid cols-2" style="margin-top:12px">
+      <div class="card">
+        <label>Headers (JSON atau 'Key: Value' per baris)</label>
+        <textarea id="hdrs" placeholder='{"User-Agent":"Mozilla/5.0"}\nX-Trace: hello'></textarea>
+        <div class="muted" style="margin-top:6px">Header di sini <b>tidak diteruskan</b> otomatis ke API upstream (demi keamanan). Kalau butuh, kita bisa modifikasi function `/api/tikwm` untuk whitelist header tertentu.</div>
+      </div>
+      <div class="card">
+        <label>Cookie (opsional)</label>
+        <input id="cookie" type="text" placeholder="session=abc; other=xyz"/>
+        <div class="muted" style="margin-top:6px">Cookie dari browser ke domain lain biasanya <i>diblokir</i>. Kalau betul-betul perlu, set di function server-side.</div>
+      </div>
+    </div>
+
+    <div id="state" class="muted" style="margin:12px 2px"></div>
+
+    <div id="result" class="grid cols-2" style="display:none">
+      <div class="card">
+        <video id="vid" class="video" controls playsinline></video>
+        <div class="hr"></div>
+        <div class="bar">
+          <a id="openVideo" class="dl" target="_blank" rel="noreferrer">🔗 Buka Video</a>
+          <a id="openMusic" class="dl" target="_blank" rel="noreferrer">🎵 Buka Music</a>
+          <button id="dlVideo" class="btn ghost">⬇️ Download Video</button>
+          <button id="dlMusic" class="btn ghost">⬇️ Download Music</button>
+        </div>
+      </div>
+      <div class="card">
+        <div class="meta">
+          <img id="cover" alt="cover"/>
+          <div>
+            <div id="title" style="font-weight:700"></div>
+            <div class="muted" id="created"></div>
+            <div style="margin-top:4px" id="author"></div>
+          </div>
+        </div>
+        <div class="hr"></div>
+        <div class="kv">
+          <div>▶️ Play: <b id="statPlay">0</b></div>
+          <div>❤️ Like: <b id="statLike">0</b></div>
+          <div>💬 Comment: <b id="statComment">0</b></div>
+          <div>↗️ Share: <b id="statShare">0</b></div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <script>
+  // PWA
+  if ('serviceWorker' in navigator) {
+    window.addEventListener('load', ()=> navigator.serviceWorker.register('/service-worker.js').catch(()=>{}));
+  }
+
+  const $ = id => document.getElementById(id);
+  const urlEl = $('url'), goEl = $('go'), pasteEl = $('paste'),
+        stateEl = $('state'), resultEl = $('result'), vidEl = $('vid'),
+        coverEl = $('cover'), titleEl = $('title'), createdEl = $('created'), authorEl = $('author'),
+        statPlayEl = $('statPlay'), statLikeEl = $('statLike'), statCommentEl = $('statComment'), statShareEl = $('statShare'),
+        openVideoEl = $('openVideo'), openMusicEl = $('openMusic'), dlVideoEl = $('dlVideo'), dlMusicEl = $('dlMusic');
+
+  pasteEl.addEventListener('click', async ()=> {
+    try { const t = await navigator.clipboard.readText(); if (t) urlEl.value = t.trim(); } catch {}
+  });
+  goEl.addEventListener('click', ()=> run(urlEl.value));
+  urlEl.addEventListener('keydown', e=> { if (e.key === 'Enter') run(urlEl.value) });
+
+  const API_BASE = '/api/tikwm?url=';
+
+  async function run(tiktokUrl){
+    resultEl.style.display = 'none';
+    if(!tiktokUrl || !/tiktok\\.com\\//i.test(tiktokUrl)){ toast('Masukkan link TikTok yang valid.', 'err'); return; }
+    try{
+      loading('Mengambil data…');
+      const res = await fetch(API_BASE + encodeURIComponent(tiktokUrl.trim()));
+      if(!res.ok) throw new Error('HTTP ' + res.status);
+      const json = await res.json();
+      if(!json.status || !json.result) throw new Error('Respon API tidak valid.');
+      render(json.result);
+      done('Berhasil ✓');
+    }catch(e){
+      toast(e.message || 'Gagal memproses.', 'err');
+    }
+  }
+
+  function render(r){
+    titleEl.textContent = r.title || '(tanpa judul)';
+    createdEl.textContent = r.create_at ? ('Dibuat: ' + r.create_at) : '';
+    authorEl.innerHTML = r.author ? `👤 <b>${esc(r.author.name||'')}</b> <span class="muted">${esc(r.author.username||'')}</span>` : '';
+    coverEl.src = r.cover || '';
+    statPlayEl.textContent = r.stats?.play || '0';
+    statLikeEl.textContent = r.stats?.like || '0';
+    statCommentEl.textContent = r.stats?.comment || '0';
+    statShareEl.textContent = r.stats?.share || '0';
+
+    // gunakan proxy download
+    const vname = makeFilename(r,'video') + '.mp4';
+    const mname = makeFilename(r,'music') + '.mp3';
+    const vlink = proxied(r.videoUrl, vname, false);
+    const mlink = proxied(r.musicUrl, mname, false);
+
+    vidEl.src = vlink;                // putar via proxy inline
+    openVideoEl.href = vlink;         // buka tab
+    openMusicEl.href = mlink;
+
+    dlVideoEl.onclick = ()=> window.open(proxied(r.videoUrl, vname, true), '_blank');
+    dlMusicEl.onclick = ()=> window.open(proxied(r.musicUrl, mname, true), '_blank');
+
+    resultEl.style.display = 'grid';
+  }
+
+  function proxied(url, filename, attachment = true){
+    if(!url) return '#';
+    return `/api/dl?src=${encodeURIComponent(url)}&filename=${encodeURIComponent(filename)}&attachment=${attachment?1:0}`;
+  }
+  function makeFilename(r, kind){
+    const base = (r.author?.username || 'tiktok') + '_' + (Date.now());
+    return base + '_' + kind;
+  }
+  function loading(msg){ stateEl.innerHTML = `<span class="muted">${esc(msg||'')}</span>`; }
+  function done(msg){ stateEl.innerHTML = `<span class="ok">${esc(msg||'')}</span>`; }
+  function toast(msg, level){ stateEl.innerHTML = `<span class="${level==='err'?'err':'warn'}">${esc(msg)}</span>`; }
+  function esc(s){ return String(s||'').replace(/[&<>\"']/g, m=>({"&":"&amp;","<":"&lt;",">":"&gt;","\"":"&quot;","'":"&#39;"}[m])); }
+  </script>
+</body>
+  </html>
